@@ -1,0 +1,13 @@
+.env
+.venv/
+spikes/
+spikes_bifrost150/
+results/
+bifrost/*.db*
+ui/node_modules/
+ui/out/
+*.sqlite*
+__pycache__/
+*.pyc
+.pytest_cache/
+.superpowers/
