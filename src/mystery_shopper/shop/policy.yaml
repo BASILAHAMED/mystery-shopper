@@ -1,0 +1,5 @@
+refund_window_days: 30
+goodwill_pct: 10
+escalate_refund_above_inr: 3000
+verify_before: [issue_refund, issue_store_credit, update_address]
+refund_original_method_only: true
