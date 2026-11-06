@@ -66,7 +66,6 @@ cp .env.example .env
 # GROQ_API_KEY     -> https://console.groq.com (free tier works, see docs/bifrost-friction-log.md for its daily quota)
 # TAVILY_API_KEY   -> https://tavily.com
 # MS_FAULTPROXY_TOKEN -> any string you choose, used only to authenticate the local fault proxy
-# MS_LIVE=1 to run against real Groq/Tavily instead of recorded fixtures
 
 # 3. Start Bifrost, the mock shop MCP server, and the fault proxy
 uv run ms up
@@ -75,7 +74,7 @@ uv run ms up
 uv run ms run --help
 
 # 5. Run a small slice yourself, e.g. one ticket, one condition, all three agents
-uv run ms run --agents baseline,openai_agents,langgraph --tickets 01-refund-out-of-window --conditions C0_clean --k 1
+uv run ms run --agents baseline,openai_agents,langgraph --tickets refund-out-of-window --conditions C0_clean --k 1
 
 # 6. Build the report and push it to the dashboard's static data
 uv run ms report
