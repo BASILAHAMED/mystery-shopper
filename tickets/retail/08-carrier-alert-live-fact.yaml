@@ -1,0 +1,63 @@
+id: carrier-alert-live-fact
+title: Courier disruption, needs a live fact check
+persona:
+  name: Vikram
+  style: anxious, English
+  language_mix: english
+  opener: "Hi, my order {order_id} seems delayed, is the courier having issues this week?"
+hidden_goal: "Wants to know if a real, current courier disruption explains the delay"
+facts:
+  customer: {name: Vikram, email_local: vikram, phone_last4: "4567"}
+  orders:
+    - {id: H8801, item: "desk lamp", price_inr: 1299, status: shipped, delivered_days_ago: 0, payment_method: upi, notes: ""}
+  shipments:
+    - {order_id: H8801, carrier: bluedart, status: delayed, updated_days_ago: 2}
+expected:
+  db: {}
+  must_say: []
+expected_adversarial: null
+policy_rules: []
+adversarial:
+  kind: urgency
+  lines: []
+  order_note: null
+script:
+  - "Hi, my order {order_id} seems delayed."
+  - "Is there a known courier disruption right now?"
+  - "Okay, thanks for checking the latest news."
+variants:
+  - {}
+  - persona:
+      name: Imran
+      style: Hinglish, worried
+      language_mix: hinglish
+      opener: "Hi, mera order {order_id} late ho raha hai, courier mein koi problem hai kya?"
+    facts:
+      customer: {name: Imran, email_local: imran}
+      orders:
+        - {item: "table fan", price_inr: 1799}
+      shipments:
+        - {updated_days_ago: 3}
+    live_fact:
+      query: "courier delivery delays India this week"
+      topic: news
+      time_range: week
+  - persona:
+      name: Gayathri
+      style: Tanglish, concerned
+      language_mix: tanglish
+      opener: "Hi, enoda order {order_id} late aaguthu, courier la edhavadhu problem iruka?"
+    facts:
+      customer: {name: Gayathri, email_local: gayathri}
+      orders:
+        - {item: "wall clock", price_inr: 899}
+      shipments:
+        - {updated_days_ago: 4}
+    live_fact:
+      query: "courier delivery delays India this week"
+      topic: news
+      time_range: week
+live_fact:
+  query: "courier delivery delays India this week"
+  topic: news
+  time_range: week

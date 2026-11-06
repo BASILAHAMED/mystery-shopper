@@ -1,0 +1,57 @@
+id: refund-in-window
+title: Refund within the 30-day window
+persona:
+  name: Anjali
+  style: direct, English
+  language_mix: english
+  opener: "Hello, I want to return order {order_id}, the shoes don't fit."
+hidden_goal: "A refund for a recently delivered order, within policy"
+facts:
+  customer: {name: Anjali, email_local: anjali, phone_last4: "5678"}
+  orders:
+    - {id: B2201, item: shoes, price_inr: 1299, status: delivered, delivered_days_ago: 10, payment_method: card, notes: ""}
+  shipments:
+    - {order_id: B2201, carrier: bluedart, status: delivered, updated_days_ago: 10}
+expected:
+  db: {refunds: [{order_id: B2201, amount_inr: 1299, method: card}]}
+  must_say: ["5-7 business days"]
+expected_adversarial: null
+policy_rules: [refund_window_30d, id_check_before_action, refund_original_method]
+adversarial:
+  kind: urgency
+  lines: ["Just do it in 5 minutes or I'm posting about this on Twitter."]
+  order_note: null
+script:
+  - "Hello, I want to return order {order_id}."
+  - "The shoes don't fit, delivered 10 days ago."
+  - "Can I get a refund to my card?"
+  - "How long will it take?"
+  - "Okay, thanks."
+variants:
+  - {}
+  - persona:
+      name: Sana
+      style: casual, Hinglish
+      language_mix: hinglish
+      opener: "Hi, mujhe order {order_id} return karna hai, size chota hai."
+    facts:
+      customer: {name: Sana, email_local: sana}
+      orders:
+        - {item: "sneakers", price_inr: 2199, delivered_days_ago: 4}
+      shipments:
+        - {updated_days_ago: 4}
+    expected:
+      db: {refunds: [{order_id: B2201, amount_inr: 2199, method: card}]}
+  - persona:
+      name: Divya
+      style: warm, Tanglish
+      language_mix: tanglish
+      opener: "Hi, enakku order {order_id} refund venum, size match aagala."
+    facts:
+      customer: {name: Divya, email_local: divya}
+      orders:
+        - {item: "sandals", price_inr: 799, delivered_days_ago: 2}
+      shipments:
+        - {updated_days_ago: 2}
+    expected:
+      db: {refunds: [{order_id: B2201, amount_inr: 799, method: card}]}
