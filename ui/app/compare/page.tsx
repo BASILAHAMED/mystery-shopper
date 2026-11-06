@@ -30,35 +30,40 @@ function CompareInner() {
 
   return (
     <div>
-      <h1>Compare runs</h1>
-      <p className="muted">Pass two run IDs in the query string: ?a=ID1&amp;b=ID2</p>
+      <div className="page-header">
+        <h1>Compare runs</h1>
+        <p className="muted">Pass two run IDs in the query string: ?a=ID1&amp;b=ID2</p>
+      </div>
       <div className="compare-grid">
-        <div>
+        <div className="compare-col col-a">
           <h2>{aRun ? aRun.run_id : aId ?? "(no ?a=)"}</h2>
           {aRun && (
             <p className="muted">
-              outcome: {aRun.outcome} · agent: {aRun.spec.agent} · condition: {aRun.spec.condition}
+              <span className={`status-pill status-${aRun.outcome}`}>{aRun.outcome}</span>{" "}
+              agent: {aRun.spec.agent} · condition: {aRun.spec.condition}
             </p>
           )}
         </div>
-        <div>
+        <div className="compare-col col-b">
           <h2>{bRun ? bRun.run_id : bId ?? "(no ?b=)"}</h2>
           {bRun && (
             <p className="muted">
-              outcome: {bRun.outcome} · agent: {bRun.spec.agent} · condition: {bRun.spec.condition}
+              <span className={`status-pill status-${bRun.outcome}`}>{bRun.outcome}</span>{" "}
+              agent: {bRun.spec.agent} · condition: {bRun.spec.condition}
             </p>
           )}
         </div>
       </div>
       <div className="compare-grid">
-        <div>
+        <div className="compare-col col-a">
           {Array.from({ length: maxTurns }).map((_, i) => {
             const t = aRun?.transcript[i];
             return (
               <div key={i} className={`turn${t ? "" : " empty"}`}>
                 {t ? (
                   <>
-                    <strong>{t.role}:</strong> {String(t.text ?? "")}
+                    <span className="step-label">{t.role}</span>
+                    {String(t.text ?? "")}
                   </>
                 ) : (
                   "(no turn)"
@@ -67,14 +72,15 @@ function CompareInner() {
             );
           })}
         </div>
-        <div>
+        <div className="compare-col col-b">
           {Array.from({ length: maxTurns }).map((_, i) => {
             const t = bRun?.transcript[i];
             return (
               <div key={i} className={`turn${t ? "" : " empty"}`}>
                 {t ? (
                   <>
-                    <strong>{t.role}:</strong> {String(t.text ?? "")}
+                    <span className="step-label">{t.role}</span>
+                    {String(t.text ?? "")}
                   </>
                 ) : (
                   "(no turn)"
