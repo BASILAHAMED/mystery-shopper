@@ -3,24 +3,27 @@ import Link from "next/link";
 import LeaderboardBarChart from "@/components/LeaderboardBarChart";
 import OutcomeDistribution, { buildOutcomeCounts } from "@/components/OutcomeDistribution";
 
-// Heatmap color scale: red (low pass rate) -> amber -> green (high pass
-// rate), interpolated in two segments for a genuinely readable gradient.
+// Heatmap color scale: cool blue (low pass rate) -> neutral grey (mid) ->
+// hot red (high pass rate), interpolated in two segments. This follows the
+// conventional "cool to hot" dashboard heatmap convention (cool = low
+// value, hot = high value) rather than an arbitrary red/green scheme, and
+// reuses the existing --accent / --text-muted / --status-fail tokens.
 // Text color flips to dark once the background lightens enough to need it.
 function heatColor(value: number): { bg: string; fg: string } {
   const v = Math.max(0, Math.min(1, value));
   let r: number, g: number, b: number;
   if (v < 0.5) {
-    // red (248,81,73) -> amber (210,153,34)
+    // cool blue, --accent (91,140,255) -> neutral grey, --text-muted (128,132,142)
     const t = v / 0.5;
-    r = Math.round(248 + (210 - 248) * t);
-    g = Math.round(81 + (153 - 81) * t);
-    b = Math.round(73 + (34 - 73) * t);
+    r = Math.round(91 + (128 - 91) * t);
+    g = Math.round(140 + (132 - 140) * t);
+    b = Math.round(255 + (142 - 255) * t);
   } else {
-    // amber (210,153,34) -> green (63,185,80)
+    // neutral grey (128,132,142) -> hot red, --status-fail (248,81,73)
     const t = (v - 0.5) / 0.5;
-    r = Math.round(210 + (63 - 210) * t);
-    g = Math.round(153 + (185 - 153) * t);
-    b = Math.round(34 + (80 - 34) * t);
+    r = Math.round(128 + (248 - 128) * t);
+    g = Math.round(132 + (81 - 132) * t);
+    b = Math.round(142 + (73 - 142) * t);
   }
   // Perceived luminance decides whether dark or light text reads better.
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
@@ -41,6 +44,10 @@ export default function LeaderboardPage() {
     new Set(Object.values(report.matrix).flatMap((row) => Object.keys(row)))
   ).sort();
   const outcomeCounts = buildOutcomeCounts(getAllRuns());
+  // Ranking chart/table must be sorted descending by pass rate, not left in
+  // whatever order the source data happens to list agents. Sort once here
+  // so the table and the bar chart below always stay in the same order.
+  const leaderboard = [...report.leaderboard].sort((a, b) => b.pass1 - a.pass1);
 
   return (
     <div>
@@ -84,7 +91,7 @@ export default function LeaderboardPage() {
             </tr>
           </thead>
           <tbody>
-            {report.leaderboard.map((row) => (
+            {leaderboard.map((row) => (
               <tr key={row.agent}>
                 <td className="agent-name">{row.agent}</td>
                 <td className="num">
@@ -104,7 +111,7 @@ export default function LeaderboardPage() {
       </div>
 
       <h2>pass@1 / pass^k by agent</h2>
-      <LeaderboardBarChart rows={report.leaderboard} />
+      <LeaderboardBarChart rows={leaderboard} />
 
       <h2>Outcome distribution by agent</h2>
       <p className="muted">

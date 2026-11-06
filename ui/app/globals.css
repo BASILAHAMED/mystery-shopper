@@ -131,6 +131,7 @@ p {
 a {
   color: var(--accent);
   text-decoration: none;
+  transition: color 200ms ease;
 }
 a:hover {
   color: var(--accent-hover);
@@ -227,7 +228,8 @@ a:hover {
 .table-wrap {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   margin-bottom: var(--space-10);
   background: var(--surface);
 }
@@ -263,6 +265,7 @@ tbody tr:last-child td {
 
 tbody tr:hover td {
   background: var(--surface-hover);
+  transition: background-color 200ms ease;
 }
 
 td.num,
@@ -384,7 +387,7 @@ th.num {
   height: 8px;
   width: 160px;
   border-radius: var(--radius-pill);
-  background: linear-gradient(to right, #f85149, #d29922, #3fb950);
+  background: linear-gradient(to right, var(--accent), var(--text-muted), var(--status-fail));
   border: 1px solid var(--border-subtle);
 }
 
@@ -472,6 +475,22 @@ th.num {
   padding-left: 0;
 }
 
+/* Side-by-side compare columns can get cramped on narrow viewports; stack
+   them vertically instead of letting the grid squeeze/overflow. */
+@media (max-width: 720px) {
+  .compare-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .compare-col.col-a {
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-right: 0;
+    padding-bottom: var(--space-5);
+    margin-bottom: var(--space-5);
+  }
+}
+
 .compare-col h2 {
   font-size: 13px;
   font-family: var(--font-mono), ui-monospace, monospace;
@@ -538,6 +557,10 @@ th.num {
   border-color: var(--border-strong);
 }
 
+.filter-field select {
+  transition: border-color 200ms ease;
+}
+
 .filter-spacer {
   flex: 1;
 }
@@ -555,6 +578,7 @@ th.num {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+  transition: border-color 200ms ease, color 200ms ease, background-color 200ms ease;
 }
 
 .btn:disabled {
@@ -580,11 +604,37 @@ th.num {
 
 /* Sortable table headers ------------------------------------------------------- */
 th.sortable {
-  cursor: pointer;
+  padding: 0;
   user-select: none;
 }
 
-th.sortable:hover {
+/* The sort control is a real <button> inside the <th> so it is reachable
+   and operable via Tab + Enter/Space, with no change to the header's
+   visual appearance (background/typography are inherited from th). */
+.sortable-btn {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  background: none;
+  border: none;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  transition: color 200ms ease;
+}
+
+th.num .sortable-btn {
+  justify-content: flex-end;
+}
+
+.sortable-btn:hover {
   color: var(--text-secondary);
 }
 
@@ -616,6 +666,31 @@ th.sortable:hover {
   height: 10px;
   border-radius: 3px;
   display: inline-block;
+}
+
+/* Matches the diagonal-hatch overlay rendered on top of the pass^k bars,
+   so the legend swatch itself also carries the non-color distinction. */
+.chart-legend-swatch-hatched {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(10, 10, 12, 0.45) 0,
+    rgba(10, 10, 12, 0.45) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* Keyboard focus on an individual chart bar group: SVG elements support a
+   plain CSS outline in evergreen browsers, so each bar gets the same
+   visible focus treatment as every other control on the page. */
+.chart-bar-group {
+  transition: outline-color 200ms ease;
+}
+
+.chart-bar-group:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 /* Outcome distribution ----------------------------------------------------------- */
@@ -661,4 +736,16 @@ th.sortable:hover {
   font-size: 12px;
   color: var(--text-muted);
   text-align: right;
+}
+
+/* Motion preferences ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

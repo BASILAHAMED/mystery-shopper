@@ -85,6 +85,14 @@ export default function RunsTable({ rows }: { rows: RunListItem[] }) {
     return sortDir === "asc" ? " \u2191" : " \u2193";
   }
 
+  // Screen-reader-facing sort state for a column header: "ascending" /
+  // "descending" for whichever column is currently sorted, "none" for
+  // every other column.
+  function ariaSort(key: SortKey): "ascending" | "descending" | "none" {
+    if (key !== sortKey) return "none";
+    return sortDir === "asc" ? "ascending" : "descending";
+  }
+
   function toggleSelected(id: string) {
     setSelected((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
@@ -165,25 +173,37 @@ export default function RunsTable({ rows }: { rows: RunListItem[] }) {
           <thead>
             <tr>
               <th />
-              <th className="sortable" onClick={() => onSort("agent")}>
-                Agent{sortIndicator("agent")}
+              <th className="sortable" aria-sort={ariaSort("agent")}>
+                <button type="button" className="sortable-btn" onClick={() => onSort("agent")}>
+                  Agent{sortIndicator("agent")}
+                </button>
               </th>
-              <th className="sortable" onClick={() => onSort("ticket_id")}>
-                Ticket{sortIndicator("ticket_id")}
+              <th className="sortable" aria-sort={ariaSort("ticket_id")}>
+                <button type="button" className="sortable-btn" onClick={() => onSort("ticket_id")}>
+                  Ticket{sortIndicator("ticket_id")}
+                </button>
               </th>
               <th className="num">Variant</th>
-              <th className="sortable" onClick={() => onSort("condition")}>
-                Condition{sortIndicator("condition")}
+              <th className="sortable" aria-sort={ariaSort("condition")}>
+                <button type="button" className="sortable-btn" onClick={() => onSort("condition")}>
+                  Condition{sortIndicator("condition")}
+                </button>
               </th>
               <th className="num">Repeat</th>
-              <th className="sortable" onClick={() => onSort("outcome")}>
-                Outcome{sortIndicator("outcome")}
+              <th className="sortable" aria-sort={ariaSort("outcome")}>
+                <button type="button" className="sortable-btn" onClick={() => onSort("outcome")}>
+                  Outcome{sortIndicator("outcome")}
+                </button>
               </th>
-              <th className="num sortable" onClick={() => onSort("success")}>
-                Success{sortIndicator("success")}
+              <th className="num sortable" aria-sort={ariaSort("success")}>
+                <button type="button" className="sortable-btn" onClick={() => onSort("success")}>
+                  Success{sortIndicator("success")}
+                </button>
               </th>
-              <th className="num sortable" onClick={() => onSort("cost_usd")}>
-                Cost (USD){sortIndicator("cost_usd")}
+              <th className="num sortable" aria-sort={ariaSort("cost_usd")}>
+                <button type="button" className="sortable-btn" onClick={() => onSort("cost_usd")}>
+                  Cost (USD){sortIndicator("cost_usd")}
+                </button>
               </th>
               <th className="num">Tokens in+out</th>
             </tr>
