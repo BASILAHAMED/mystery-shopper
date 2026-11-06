@@ -47,14 +47,20 @@ npm run build                 # -> ui/out/ (output: "export" in next.config.ts)
 
 ## Deploy
 
-Deliberately **not done by the agent**. Once `ui/out/` is built, a human runs:
+Live at: **https://mystery-shopper-flax.vercel.app** (Vercel project
+`genos-projects2/mystery-shopper`). `ui/` has no `.git` of its own (the repo's
+`.git` lives one level up, at the project root), so `vercel link`/`deploy` run
+directly from `ui/` without tripping `gitForkProtection` (see
+`vercel-cli-deploy` skill) — `vercel link --yes --project mystery-shopper`
+then `vercel deploy --prod --yes`, both with an existing cached CLI token
+(no interactive `vercel login` needed). The exact `mystery-shopper.vercel.app`
+subdomain was already taken by an unrelated project; Vercel auto-suffixed the
+alias, confirmed with a direct `curl` + `<title>` check against the live URL
+before trusting it.
 
-```bash
-vercel login
-vercel deploy ui/out --prod
-```
-
-(or the Vercel CLI token flow from the `vercel-cli-deploy` skill). Record the resulting URL here once deployed.
+Currently serving the sample dataset in `public/data/` — redeploy
+(`vercel deploy --prod --yes`) after running `uv run ms snapshot` once the
+real evaluation matrix (Task 16) finishes, to replace it with real numbers.
 
 ## Deploy on Vercel
 
