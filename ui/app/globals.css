@@ -530,8 +530,8 @@ th.num {
 }
 
 .filter-field select option {
-  background: var(--surface);
-  color: var(--text-primary);
+  background: #ffffff;
+  color: #111111;
 }
 
 .filter-field select:hover {
