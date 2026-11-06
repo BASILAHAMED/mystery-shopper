@@ -110,3 +110,20 @@ rule ("k=5 if ≤$10, else 3").
 Re-running `ms run` once the daily quota resets (or with a paid Groq key) will
 produce the literal `results/report.json` and replace this projection with
 measured `totals.cost_usd`.
+
+**Revised to k = 3 (6 Nov, overnight matrix in progress).** Cost was never the
+binding constraint — Groq's free-tier *daily token quota* is. The quota
+recovers in a slow trickle rather than a clean daily reset, so a `--k 5`
+matrix (1,440 runs) wasn't going to finish in any reasonable window on the
+free tier alone; measured live throughput during the first overnight pass was
+roughly 1 run per 1–2 minutes even with 1 concurrent worker, well below what's
+needed. Dropped to **k = 3** (3 agents × 8 tickets × 3 variants × 4 conditions
+× 3 = 864 runs, a 40% cut) to finish meaningfully sooner while keeping enough
+repeats per group for `pass_hat_k`/`bootstrap_ci` to be statistically
+meaningful (`comb(c,3)/comb(n,3)` still gives real signal; it would not with
+k=1). `scripts/overnight_matrix.sh` re-runs the same idempotent `ms run`
+command every 15 minutes for up to 24h; already-completed runs are skipped
+(resumability fix, see `docs/bifrost-friction-log.md`), and the earlier k=5
+attempt's completed repeat-0/1/2 runs are reused as-is — only the now-unused
+repeat-3/4 files are stranded (harmless, left on disk, excluded since no spec
+references them at k=3).

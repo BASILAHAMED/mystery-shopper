@@ -11,7 +11,7 @@ set -u
 cd /d/Hermes/mystery-shopper
 set -a; source .env; set +a
 
-END=$(( $(date +%s) + 10*3600 ))
+END=$(( $(date +%s) + 24*3600 ))
 LOG=results/overnight.log
 mkdir -p results
 echo "=== overnight matrix started $(date) ===" >> "$LOG"
@@ -21,7 +21,7 @@ while [ "$(date +%s)" -lt "$END" ]; do
   echo "--- pass at $(date) (have $BEFORE run files) ---" >> "$LOG"
   uv run ms run --agents openai_agents,langgraph,baseline --tickets all \
     --variants 0,1,2 --conditions C0_clean,C1_adversarial,C2_model_outage,C3_broken_tool \
-    --k 5 --concurrency 1 --budget 10.0 >> "$LOG" 2>&1
+    --k 3 --concurrency 1 --budget 10.0 >> "$LOG" 2>&1
   AFTER=$(ls results/runs/*.json 2>/dev/null | wc -l)
   echo "--- pass done: $BEFORE -> $AFTER run files ---" >> "$LOG"
   sleep 900
