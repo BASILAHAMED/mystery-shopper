@@ -58,4 +58,30 @@ with the same `mcp` client session the baseline adapter uses (dynamic pydantic
 arg models from each tool's JSON schema), instead of going through
 langchain-mcp-adapters. `create_react_agent` itself is untouched and real.
 
+## 6 Nov — the MCP tool list is cached per-connection-string and survives a config edit
+
+Bifrost's `./bifrost` app-dir persists an MCP tool-list cache in `config.db`
+keyed by the MCP client's connection string. During Task 1 we briefly pointed
+`mock_shop` at a throwaway spike server (a single `ping_order` tool, for a
+connectivity smoke test) on the same `127.0.0.1:8765` port the real shop server
+later reused. Even after swapping in the real 7-tool shop server and restarting
+Bifrost, `list_tools()` through Bifrost's `/mcp` gateway kept returning the
+single stale `ping_order` tool — which then made every real agent's first
+tool call 400 once it tried to call a tool genuinely not in the stale list sent
+upstream. The fix is a clean restart with `bifrost/*.db*` removed (gitignored,
+so this is safe), forcing Bifrost to reconnect and re-discover tools fresh.
+Bifrost should probably invalidate this cache on a tool list change or at least
+on restart; right now it doesn't.
+
+## 6 Nov — a per-run virtual key is unsafe to share with the customer simulator
+
+Because of the VK-pool ruling above, `create_vk()` claims a POOL SLOT and PUTs
+*new* `provider_configs` onto it (scoped to just the run's `agent_model`). If
+the same slot/value is also used for the customer-simulator and judge LLM calls
+(a different model, e.g. a plain `groq/openai/gpt-oss-120b` vs the `shopmodel`
+alias), the simulator's calls start 403ing the moment any run claims that slot,
+since the slot's `allowed_models` just got narrowed. The fix: the simulator and
+judge need their own dedicated, never-claimed virtual key (`ms-sim` in
+`bifrost/config.json`, `allowed_models: ["*"]`), separate from the per-run pool.
+
 

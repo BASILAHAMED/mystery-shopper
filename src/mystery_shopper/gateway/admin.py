@@ -48,7 +48,7 @@ class BifrostAdmin:
         pool: list[VirtualKey] | None = None,
     ):
         self.base_url = base_url.rstrip("/")
-        self.client = client or httpx.AsyncClient()
+        self.client = client or httpx.AsyncClient(timeout=30)
         self._free: list[VirtualKey] = list(pool or [])
         self._in_use: dict[str, VirtualKey] = {}
 
