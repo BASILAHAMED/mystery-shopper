@@ -30,6 +30,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span className="brand-mark">MS</span> Mystery Shopper
           </span>
           <Link href="/">Leaderboard</Link>
+          <Link href="/runs">Runs</Link>
+          <Link href="/compare">Compare</Link>
         </nav>
         <main className="container">{children}</main>
       </body>

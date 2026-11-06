@@ -1,4 +1,7 @@
-import { getReport } from "@/lib/data";
+import { getReport, getAllRuns } from "@/lib/data";
+import Link from "next/link";
+import LeaderboardBarChart from "@/components/LeaderboardBarChart";
+import OutcomeDistribution, { buildOutcomeCounts } from "@/components/OutcomeDistribution";
 
 // Heatmap color scale: red (low pass rate) -> amber -> green (high pass
 // rate), interpolated in two segments for a genuinely readable gradient.
@@ -37,6 +40,7 @@ export default function LeaderboardPage() {
   const conditions = Array.from(
     new Set(Object.values(report.matrix).flatMap((row) => Object.keys(row)))
   ).sort();
+  const outcomeCounts = buildOutcomeCounts(getAllRuns());
 
   return (
     <div>
@@ -99,6 +103,15 @@ export default function LeaderboardPage() {
         </table>
       </div>
 
+      <h2>pass@1 / pass^k by agent</h2>
+      <LeaderboardBarChart rows={report.leaderboard} />
+
+      <h2>Outcome distribution by agent</h2>
+      <p className="muted">
+        Raw outcome counts, including infra errors that pass-rate metrics above exclude.
+      </p>
+      <OutcomeDistribution data={outcomeCounts} />
+
       <h2>Heatmap: pass@1 by condition</h2>
       <div className="heatmap-legend">
         <span>0.0</span>
@@ -149,7 +162,8 @@ export default function LeaderboardPage() {
       </div>
 
       <p className="muted">
-        See a run inspector at <code>/run/&lt;run_id&gt;</code>, or compare two runs at{" "}
+        Browse every run at <Link href="/runs">/runs</Link>, inspect one at{" "}
+        <code>/run/&lt;run_id&gt;</code>, or compare two at{" "}
         <code>/compare?a=ID1&amp;b=ID2</code>. Outcomes:{" "}
         {Object.entries(OUTCOME_LABELS).map(([k, label], i) => (
           <span key={k}>
