@@ -92,3 +92,30 @@ async def test_matrix_retries_cached_infra_error_instead_of_treating_it_as_done(
 
     assert call_count == 1
     assert records[0].outcome == "success"
+
+
+@pytest.mark.asyncio
+async def test_unclassified_exception_does_not_crash_the_whole_matrix(tmp_path, monkeypatch):
+    """Regression: a run_one crash that isn't infra_error/timeout (e.g. a 400
+    BadRequestError from a framework/provider quirk) used to propagate out of
+    asyncio.gather and kill every other spec in the batch too."""
+    from mystery_shopper.runner import matrix as matrix_mod
+
+    bad_spec = _spec(0)
+    good_spec = _spec(1)
+    out_dir = tmp_path / "results"
+
+    async def fake_run_one(spec, deps, customer="llm"):
+        if spec is bad_spec:
+            raise RuntimeError("Tool choice is none, but model called a tool")
+        return _record(spec, 0.1, outcome="success")
+
+    monkeypatch.setattr(matrix_mod, "run_one", fake_run_one)
+
+    records = await matrix_mod.run_matrix(
+        [bad_spec, good_spec], deps=object(), out_dir=out_dir, concurrency=2, budget_usd=10.0
+    )
+
+    outcomes = {r.spec.repeat: r.outcome for r in records}
+    assert outcomes[0] == "infra_error"
+    assert outcomes[1] == "success"

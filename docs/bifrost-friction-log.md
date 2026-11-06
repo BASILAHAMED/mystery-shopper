@@ -151,4 +151,22 @@ only treated as done if its `outcome != "infra_error"`; infra_error entries
 get re-attempted on every re-run. Regression test:
 `test_matrix_retries_cached_infra_error_instead_of_treating_it_as_done`.
 
+## 6 Nov — one unclassified error crashed the entire overnight matrix
+
+The first real overnight-matrix attempt died within the first pass:
+`openai.BadRequestError: Error code: 400 - Tool choice is none, but model
+called a tool` (a framework/provider quirk, probably one of the agent SDKs
+sending `tool_choice: "none"` on a turn while the model still emits a tool
+call). `run_one` correctly did NOT swallow this — a 400 isn't a retryable
+429/5xx, so it re-raised as designed — but `run_matrix`'s `_attempt` had no
+try/except around the `run_one` call at all, and `asyncio.gather` without
+`return_exceptions=True` cancels every other in-flight task the moment one
+raises. One bad spec took the whole batch down with it, discarding all other
+specs' in-flight work for that pass (already-written files survive, but
+nothing concurrent with the crash does). Fixed: `_attempt`'s retry loop now
+catches any exception from `run_one` and records it as `infra_error` with the
+exception text in `explanation` (`_crash_record`), and `run_matrix` passes
+`return_exceptions=True` to `gather` as defense in depth. Regression test:
+`test_unclassified_exception_does_not_crash_the_whole_matrix`.
+
 

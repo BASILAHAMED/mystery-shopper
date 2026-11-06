@@ -11,6 +11,28 @@ from mystery_shopper.scoring.score import Score
 from mystery_shopper.shop.policy import Violation
 
 
+def _crash_record(spec: RunSpec, exc: BaseException) -> RunRecord:
+    """A spec that raised something run_one itself didn't classify (e.g. an
+    unexpected 400 from a framework/provider quirk) must not take the whole
+    matrix down with it. Recorded as infra_error so a later re-run retries it
+    (see docs/bifrost-friction-log.md, 6 Nov overnight-matrix crash)."""
+    return RunRecord(
+        run_id=run_id(spec),
+        token="",
+        spec=spec,
+        outcome="infra_error",
+        score=None,
+        transcript=[],
+        trace=Trace([], [], [], False),
+        tokens_in=0,
+        tokens_out=0,
+        cost_usd=0.0,
+        latency_s=0.0,
+        fallback_hops=0,
+        explanation=f"{type(exc).__name__}: {exc}"[:500],
+    )
+
+
 def _score_from_json(data: dict | None) -> Score | None:
     if data is None:
         return None
@@ -81,7 +103,10 @@ async def run_matrix(
 
             record = None
             for _ in range(max_infra_retries + 1):
-                record = await run_one(spec, deps, customer=customer)
+                try:
+                    record = await run_one(spec, deps, customer=customer)
+                except Exception as e:
+                    record = _crash_record(spec, e)
                 if record.outcome != "infra_error":
                     break
 
@@ -97,5 +122,5 @@ async def run_matrix(
 
             return record
 
-    results = await asyncio.gather(*(_attempt(s) for s in specs))
-    return [r for r in results if r is not None]
+    results = await asyncio.gather(*(_attempt(s) for s in specs), return_exceptions=True)
+    return [r for r in results if r is not None and not isinstance(r, BaseException)]
