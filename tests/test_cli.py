@@ -111,3 +111,11 @@ def test_explain_fills_explanation_for_failed_runs_only(tmp_path):
     assert updated["explanation"].startswith("Step 1:")
     untouched = json.loads((runs_dir / "r2.json").read_text(encoding="utf-8"))
     assert untouched.get("explanation") is None
+
+
+def test_resolve_tickets_expands_all():
+    from mystery_shopper.cli import _resolve_tickets
+
+    suite = {"b-ticket": object(), "a-ticket": object()}
+    assert _resolve_tickets("all", suite) == "a-ticket,b-ticket"
+    assert _resolve_tickets("a-ticket,b-ticket", suite) == "a-ticket,b-ticket"

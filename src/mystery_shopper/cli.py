@@ -102,10 +102,16 @@ def _parse_specs(agents: str, tickets: str, variants: str, conditions: str, k: i
     return specs
 
 
+def _resolve_tickets(tickets: str, suite: dict) -> str:
+    if tickets.strip() == "all":
+        return ",".join(sorted(suite.keys()))
+    return tickets
+
+
 @app.command()
 def run(
     agents: str = typer.Option(..., help="comma-separated: baseline,openai_agents,langgraph"),
-    tickets: str = typer.Option(..., help="comma-separated ticket ids"),
+    tickets: str = typer.Option(..., help="comma-separated ticket ids, or 'all'"),
     variants: str = typer.Option("0", help="comma-separated variant indices"),
     conditions: str = typer.Option(..., help="comma-separated condition ids"),
     k: int = typer.Option(1, help="repeats per (agent, ticket, variant, condition)"),
@@ -115,10 +121,11 @@ def run(
 ) -> None:
     load_dotenv(ROOT / ".env")
     settings = Settings()
-    specs = _parse_specs(agents, tickets, variants, conditions, k)
-
     policy = Policy.load(ROOT / "src" / "mystery_shopper" / "shop" / "policy.yaml")
     suite = load_suite(ROOT / "tickets" / "retail")
+
+    tickets = _resolve_tickets(tickets, suite)
+    specs = _parse_specs(agents, tickets, variants, conditions, k)
 
     admin_client = httpx.AsyncClient(
         headers={"X-Bifrost-Setup-Token": os.environ.get("MS_BIFROST_SETUP_TOKEN", "")}, timeout=30
