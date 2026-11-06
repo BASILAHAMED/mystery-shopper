@@ -25,7 +25,8 @@
       { "id": "vk-ms-pool-3", "name": "ms-pool-3", "value": "env.MS_POOL_VK_03",
         "provider_configs": [ { "provider": "groq", "weight": 1.0, "allowed_models": ["shopmodel"], "key_ids": ["*"] } ] },
       { "id": "vk-ms-sim", "name": "ms-sim", "value": "env.MS_SIM_VK",
-        "provider_configs": [ { "provider": "groq", "weight": 1.0, "allowed_models": ["*"], "key_ids": ["*"] } ] }
+        "provider_configs": [ { "provider": "groq", "weight": 1.0, "allowed_models": ["*"], "key_ids": ["*"] } ],
+        "relay_grants": [ { "relay_name": "tavily" } ] }
     ]
   }
 }

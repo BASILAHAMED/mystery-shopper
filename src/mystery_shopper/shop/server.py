@@ -5,6 +5,7 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
+import httpx
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from starlette.requests import Request
@@ -12,16 +13,32 @@ from starlette.responses import JSONResponse, Response
 
 from mystery_shopper.shop import db as shopdb
 from mystery_shopper.shop.faults import ToolFault, ToolFaultSchedule
+from mystery_shopper.tavily_cache import TavilyCache
 from mystery_shopper.tokens import token_in
 
 
-def build_server(db_path: Path) -> FastMCP:
+def build_server(
+    db_path: Path,
+    bifrost_url: str | None = None,
+    tavily_cache_path: Path | None = None,
+) -> FastMCP:
     conn = shopdb.connect(db_path)
     shopdb.init_schema(conn)
+
+    if bifrost_url is None:
+        from mystery_shopper.settings import Settings
+
+        bifrost_url = Settings().bifrost_url
+    bifrost_url = bifrost_url.rstrip("/")
+
+    tavily_cache_path = tavily_cache_path or (Path(db_path).parent / "tavily_cache.json")
+    tavily_cache = TavilyCache(tavily_cache_path)
+    relay_client = httpx.AsyncClient(timeout=15)
 
     schedules: dict[str, ToolFaultSchedule] = {}
     call_counts: dict[tuple[str, str], int] = defaultdict(int)
     step_counts: dict[str, int] = defaultdict(int)
+    run_meta: dict[str, dict] = {}
 
     mcp = FastMCP("mock_shop")
 
@@ -181,11 +198,50 @@ def build_server(db_path: Path) -> FastMCP:
         _record_event(token, "escalate_to_human", {"order_id": order_id, "reason": reason}, True)
         return {"order_id": order_id, "reason": reason}
 
+    @mcp.tool
+    async def web_search(query: str, order_id: str) -> dict:
+        """Search the web for context relevant to this order (audit: order id this search is for)."""
+        token = token_in(order_id)
+        if token is None:
+            raise ToolError("unknown order")
+
+        meta = run_meta.get(token, {})
+        cache_key = (meta.get("ticket_id", ""), meta.get("variant", 0), query.lower().strip())
+        cached = tavily_cache.get(cache_key)
+        if cached is not None:
+            _record_event(token, "web_search", {"query": query}, True)
+            return cached
+
+        resp = await relay_client.post(
+            f"{bifrost_url}/relay/tavily/search",
+            headers={"Authorization": f"Bearer {meta.get('vk_value', '')}"},
+            json={"query": query, "topic": "news", "time_range": "week", "max_results": 3},
+        )
+        data = resp.json()
+        results = [
+            {
+                "title": r.get("title"),
+                "url": r.get("url"),
+                "content": (r.get("content") or "")[:500],
+                "published_date": r.get("published_date"),
+            }
+            for r in data.get("results", [])
+        ]
+        out = {"results": results}
+        tavily_cache.put(cache_key, out)
+        _record_event(token, "web_search", {"query": query}, True)
+        return out
+
     @mcp.custom_route("/control/runs", methods=["POST"])
     async def control_create_run(request: Request) -> Response:
         body = await request.json()
         token = body["token"]
         shopdb.seed_partition(conn, token, body.get("facts", {}))
+        run_meta[token] = {
+            "vk_value": body.get("vk_value", ""),
+            "ticket_id": body.get("ticket_id", ""),
+            "variant": body.get("variant", 0),
+        }
         faults = [
             ToolFault(f["tool"], f["mode"], tuple(f["calls"]) if isinstance(f["calls"], list) else f["calls"])
             for f in body.get("tool_faults", [])
@@ -225,6 +281,7 @@ def build_server(db_path: Path) -> FastMCP:
             conn.execute(f"DELETE FROM {table} WHERE token = ?", (token,))
         conn.commit()
         schedules.pop(token, None)
+        run_meta.pop(token, None)
         return Response(status_code=204)
 
     return mcp

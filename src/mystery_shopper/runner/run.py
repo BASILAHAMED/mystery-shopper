@@ -17,7 +17,9 @@ from mystery_shopper.agents.base import RunEnv, make_adapter
 from mystery_shopper.agents.base import SYSTEM_PROMPT_PATH
 from mystery_shopper.gateway.admin import BifrostAdmin, Trace, VKSpec
 from mystery_shopper.runner.conditions import CONDITIONS, provider_configs_for
+from mystery_shopper.scoring.freshness import extract_claims, freshness_score, verify_claim
 from mystery_shopper.scoring.judge import JudgeResult, judge_must_say
+from mystery_shopper.scoring.live_search import relay_search_factory
 from mystery_shopper.scoring.score import Score, score_run
 from mystery_shopper.shop.policy import Policy, ToolEvent
 from mystery_shopper.sim.customer import LLMCustomer, ScriptedCustomer
@@ -100,6 +102,8 @@ class Deps:
     policy: Policy
     settings: object
     adapter_factory: object = make_adapter
+    live_search_factory: object = staticmethod(relay_search_factory)
+    sim_vk_value: str = ""
     rng: object = field(default_factory=lambda: __import__("random").Random())
 
 
@@ -131,6 +135,7 @@ async def run_one(spec: RunSpec, deps: Deps, customer: Literal["llm", "scripted"
     cost_usd = 0.0
     fallback_hops = 0
     score: Score | None = None
+    freshness: float | None = None
     trace = Trace([], [], [], False)
     start = time.monotonic()
 
@@ -146,6 +151,9 @@ async def run_one(spec: RunSpec, deps: Deps, customer: Literal["llm", "scripted"
                 json={
                     "token": token,
                     "facts": shop_facts,
+                    "vk_value": vk.value,
+                    "ticket_id": spec.ticket_id,
+                    "variant": spec.variant,
                     "tool_faults": [
                         {
                             "tool": f.tool,
@@ -238,6 +246,21 @@ async def run_one(spec: RunSpec, deps: Deps, customer: Literal["llm", "scripted"
             if spec.condition == "C2_model_outage":
                 fallback_hops = sum(1 for r in trace.llm if r.get("provider") == "groq")
 
+            if instance.live_fact is not None and outcome not in ("timeout", "infra_error"):
+                try:
+                    agent_replies = [t["text"] for t in transcript if t["role"] == "agent"]
+                    if agent_replies:
+                        search = deps.live_search_factory(deps.settings.bifrost_url, deps.sim_vk_value)
+                        claims = await extract_claims(agent_replies[-1], deps.sim_client, deps.sim_model)
+                        verdicts = [
+                            await verify_claim(claim, search, deps.sim_client, deps.sim_model)
+                            for claim in claims
+                        ]
+                        freshness = freshness_score(verdicts)
+                except BaseException as e:
+                    if not _is_retryable_api_error(e):
+                        raise
+
     finally:
         async with httpx.AsyncClient(timeout=30) as cleanup:
             try:
@@ -266,4 +289,5 @@ async def run_one(spec: RunSpec, deps: Deps, customer: Literal["llm", "scripted"
         cost_usd=cost_usd,
         latency_s=latency_s,
         fallback_hops=fallback_hops,
+        freshness=freshness,
     )

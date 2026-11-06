@@ -11,14 +11,14 @@ from mystery_shopper.gateway.admin import Trace, VirtualKey, VKSpec
 from mystery_shopper.runner.run import Deps, RunSpec, run_one
 from mystery_shopper.settings import Settings
 from mystery_shopper.shop.policy import Policy
-from mystery_shopper.tickets.models import Adversarial, Expected, Persona, Ticket
+from mystery_shopper.tickets.models import Adversarial, Expected, LiveFact, Persona, Ticket
 
 SHOP_URL = "http://shop.test"
 PROXY_URL = "http://proxy.test"
 POLICY_PATH = Path(__file__).resolve().parents[2] / "src" / "mystery_shopper" / "shop" / "policy.yaml"
 
 
-def _make_ticket(must_say=None) -> Ticket:
+def _make_ticket(must_say=None, live_fact=None) -> Ticket:
     return Ticket(
         id="refund-in-window",
         title="t",
@@ -45,7 +45,7 @@ def _make_ticket(must_say=None) -> Ticket:
         adversarial=Adversarial(kind="urgency", lines=[], order_note=None),
         script=["hello", "thanks bye"],
         variants=[{}],
-        live_fact=None,
+        live_fact=live_fact,
     )
 
 
@@ -305,4 +305,49 @@ async def test_judge_rate_limit_is_infra_error_not_a_crash():
     record = await run_one(spec, deps, customer="scripted")
 
     assert record.outcome == "infra_error"
+
+
+class _FreshnessSimClient:
+    """Answers extract_claims then verify_claim with canned JSON, in order."""
+
+    def __init__(self):
+        self.n = 0
+        self.chat = self
+        self.completions = self
+
+    async def create(self, **kwargs):
+        self.n += 1
+        content = (
+            '{"claims": [{"text": "your order ships tomorrow", "kind": "status"}]}'
+            if self.n == 1
+            else '{"verdict": "stale"}'
+        )
+        choice = type("Choice", (), {"message": type("Msg", (), {"content": content})()})()
+        return type("Resp", (), {"choices": [choice]})()
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_live_fact_ticket_populates_freshness():
+    _mock_shop_routes()
+
+    suite = {"carrier-alert": _make_ticket(live_fact=LiveFact(query="carrier delay"))}
+    sim_client = _FreshnessSimClient()
+    deps = _make_deps(suite, sim_client=sim_client)
+    deps.adapter_factory = lambda name, env: _EchoAdapter(env)
+
+    def fake_search_factory(bifrost_url, vk_value):
+        async def search(query):
+            return [{"title": "News", "content": "carrier delay confirmed, still ongoing"}]
+
+        return search
+
+    deps.live_search_factory = fake_search_factory
+    spec = RunSpec(agent="baseline", ticket_id="carrier-alert", variant=0, condition="C0_clean", repeat=0)
+
+    record = await run_one(spec, deps, customer="scripted")
+
+    assert record.outcome == "success"
+    assert record.freshness == 0.0
+    assert sim_client.n == 2
     assert deps.admin.deleted == ["vk-test"]

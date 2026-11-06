@@ -99,12 +99,14 @@ committed `bifrost/config.json` and the fault proxy in Task 6 both use this.
 
 ## S4 — Tavily relay
 
-**BLOCKED, not run.** Needs `TAVILY_API_KEY` (free 8,000 credits, code
-`GEEKROOM2` at app.tavily.com — a dashboard signup the user does himself, per his
-standing preference for account/KYC-style signups). Everything else in the
-pipeline does not depend on this: no other gate, and no Task 2–12 test, needs a
-live Tavily key (Task 13's tests mock the relay with respx). Re-run this gate and
-Task 16's live-fact ticket once `.env` has the real key.
+**PASS (re-run 6 Nov with the real key).** `curl -X POST
+http://127.0.0.1:8080/relay/tavily/search -H "Authorization: Bearer $MS_SIM_VK"
+-d '{"query":"courier delivery delays India this week", ...}'` returned 200
+with real Tavily search results through Bifrost's relay, using the dedicated
+`ms-sim` VK's `relay_grants: [{"relay_name": "tavily"}]` (added in Task 13;
+see `bifrost/config.json`). Confirms the relay path end-to-end: Bifrost →
+Tavily → back through the VK's grant, independent of the agent-under-test's
+own VK.
 
 ## S5 — cost and rate limits
 

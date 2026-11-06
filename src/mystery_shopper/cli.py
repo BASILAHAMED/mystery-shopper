@@ -137,6 +137,7 @@ def run(
         suite=suite,
         policy=policy,
         settings=settings,
+        sim_vk_value=os.environ.get("MS_SIM_VK", ""),
         rng=random.Random(),
     )
 
