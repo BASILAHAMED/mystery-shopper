@@ -169,4 +169,21 @@ exception text in `explanation` (`_crash_record`), and `run_matrix` passes
 `return_exceptions=True` to `gather` as defense in depth. Regression test:
 `test_unclassified_exception_does_not_crash_the_whole_matrix`.
 
+## 6 Nov — raising concurrency during quota exhaustion made throughput worse, not better
+
+Tried bumping `--concurrency` from 1 to 3 to see if Groq's free-tier trickle
+had slack a single sequential worker wasn't using. Measured result: 5 minutes
+at concurrency=3 produced 0 new completed runs, versus steady ~1/min at
+concurrency=1 right before the switch. Working theory: the quota recovers as
+a small momentary token allowance rather than a large steady-state budget: 3
+simultaneous full conversation+judge calls overshoot that allowance together
+and all 429 in the same instant, whereas sequential calls each get a fair
+shot at whatever the trickle currently allows. Reverted to concurrency=1.
+**Lesson: on a token-budget-limited (not request-rate-limited) free tier,
+concurrency is not a lever — more in-flight requests burns the same quota
+faster and can cause correlated failures instead of overlapping successes.**
+The only real way to get more aggregate daily throughput here is more
+separate API keys/accounts (each with its own quota bucket), load-balanced
+across Bifrost provider_configs, not more concurrent workers against one key.
+
 
