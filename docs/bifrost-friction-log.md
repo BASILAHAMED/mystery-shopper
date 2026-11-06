@@ -46,3 +46,16 @@ Every `/api/*` call fails with 401/403 until `BIFROST_SETUP_TOKEN` (or
 documented on the quickstart page itself, only discoverable via the error message
 or the API reference's Authorizations section.
 
+## 8 Nov — langchain-mcp-adapters has no release compatible with mcp 2.x
+
+Not a Bifrost issue, but a real ecosystem gap found while wiring the LangGraph
+adapter: `langchain-mcp-adapters` 0.3.1 (latest on PyPI at build time) imports
+`mcp.shared.context.RequestContext`, removed in the installed `mcp` 2.3.0 SDK.
+0.3.2 fixes that import but pins `mcp<2.0.0`, which conflicts with `fastmcp`'s
+own `mcp>=2.3.0` requirement — there is no version that satisfies both at once.
+Worked around by bridging MCP tools to LangChain's `StructuredTool` directly
+with the same `mcp` client session the baseline adapter uses (dynamic pydantic
+arg models from each tool's JSON schema), instead of going through
+langchain-mcp-adapters. `create_react_agent` itself is untouched and real.
+
+
