@@ -70,7 +70,9 @@ async def run_matrix(
     async def _attempt(spec: RunSpec) -> RunRecord | None:
         path = runs_dir / f"{run_id(spec)}.json"
         if path.exists():
-            return record_from_json(json.loads(path.read_text(encoding="utf-8")))
+            cached = record_from_json(json.loads(path.read_text(encoding="utf-8")))
+            if cached.outcome != "infra_error":
+                return cached
 
         async with sem:
             async with lock:

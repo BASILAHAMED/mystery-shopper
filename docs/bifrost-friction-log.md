@@ -137,4 +137,18 @@ trying to intercept the HTTP layer with respx** — it's also simpler, and the
 function's own real-network behavior is already covered by a dedicated unit
 test with a stub client object (no real SDK client involved at all).
 
+## 6 Nov — resumable matrix runner treated a cached infra_error as finished forever
+
+Found while planning Task 16's overnight matrix run, given today's Groq daily
+quota exhaustion (see above). `run_matrix`'s resumability check
+(`if path.exists(): return cached`) didn't look at the cached record's
+`outcome` — once a spec got written as `infra_error` (exactly what a quota
+429 produces), a later re-run of the identical `ms run` command, even after
+the quota reset, would read that stale `infra_error` back and skip the spec
+forever instead of retrying it. On a day with partial quota exhaustion this
+would have silently poisoned most of the matrix. Fixed: a cached record is
+only treated as done if its `outcome != "infra_error"`; infra_error entries
+get re-attempted on every re-run. Regression test:
+`test_matrix_retries_cached_infra_error_instead_of_treating_it_as_done`.
+
 
