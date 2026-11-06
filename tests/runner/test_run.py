@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 
+import asyncio
 import httpx
 import openai
 import pytest
@@ -119,6 +120,37 @@ def _status_error_factory(status_code):
     return factory
 
 
+class _GroupedStatusErrorAdapter:
+    """Mimics frameworks (e.g. LangGraph) that wrap errors in a TaskGroup."""
+
+    def __init__(self, env, status_code):
+        self.env = env
+        self.status_code = status_code
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def reply(self, transcript):
+        async def _inner():
+            request = httpx.Request("POST", "http://x.test/v1/chat/completions")
+            response = httpx.Response(self.status_code, request=request)
+            raise openai.APIStatusError("boom", response=response, body=None)
+
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(_inner())
+        return "unreachable"
+
+
+def _grouped_status_error_factory(status_code):
+    def factory(name, env):
+        return _GroupedStatusErrorAdapter(env, status_code)
+
+    return factory
+
+
 class _RaisingSimClient:
     class _Chat:
         class _Completions:
@@ -213,6 +245,22 @@ async def test_upstream_rate_limit_is_infra_error():
 
 @respx.mock
 @pytest.mark.asyncio
+async def test_rate_limit_wrapped_in_exception_group_is_still_infra_error():
+    """Regression: LangGraph/LangChain wrap 429s in a TaskGroup ExceptionGroup."""
+    _mock_shop_routes()
+    _mock_proxy_routes()
+
+    suite = {"refund-in-window": _make_ticket()}
+    deps = _make_deps(suite)
+    deps.adapter_factory = _grouped_status_error_factory(429)
+
+    spec = RunSpec(agent="langgraph", ticket_id="refund-in-window", variant=0, condition="C0_clean", repeat=0)
+    record = await run_one(spec, deps, customer="scripted")
+    assert record.outcome == "infra_error"
+
+
+@respx.mock
+@pytest.mark.asyncio
 async def test_cleanup_always_runs():
     get_route, delete_route = _mock_shop_routes()
 
@@ -226,3 +274,35 @@ async def test_cleanup_always_runs():
 
     assert deps.admin.deleted == ["vk-test"]
     assert delete_route.called
+
+
+class _RateLimitedSimClient:
+    class _Chat:
+        class _Completions:
+            async def create(self, **kwargs):
+                request = httpx.Request("POST", "http://x.test/v1/chat/completions")
+                response = httpx.Response(429, request=request)
+                raise openai.RateLimitError("rate limited", response=response, body=None)
+
+        completions = _Completions()
+
+    chat = _Chat()
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_judge_rate_limit_is_infra_error_not_a_crash():
+    """Regression: a 429 from the judge/simulator LLM (not the agent) used to
+    propagate out of run_one uncaught, since only the conversation's own
+    try/except handled APIStatusError."""
+    get_route, delete_route = _mock_shop_routes()
+
+    suite = {"refund-in-window": _make_ticket(must_say=["thanks"])}
+    deps = _make_deps(suite, sim_client=_RateLimitedSimClient())
+    deps.adapter_factory = lambda name, env: _EchoAdapter(env)
+    spec = RunSpec(agent="baseline", ticket_id="refund-in-window", variant=0, condition="C0_clean", repeat=0)
+
+    record = await run_one(spec, deps, customer="scripted")
+
+    assert record.outcome == "infra_error"
+    assert deps.admin.deleted == ["vk-test"]

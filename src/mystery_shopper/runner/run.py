@@ -30,6 +30,31 @@ SYSTEM_PROMPT = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
 _OUTAGE_CONDITIONS = {"C2_model_outage", "C2x_outage_no_fallback"}
 
 
+def _find_api_status_error(exc: BaseException) -> openai.APIStatusError | None:
+    """Recurse through BaseExceptionGroups and __cause__ chains.
+
+    Frameworks that run internal asyncio.TaskGroups (LangGraph/LangChain's
+    ChatOpenAI among them) re-raise a 429/5xx as a BaseExceptionGroup, which a
+    plain `except openai.APIStatusError` does not match even when the real
+    error is in there. See docs/bifrost-friction-log.md.
+    """
+    if isinstance(exc, openai.APIStatusError):
+        return exc
+    if isinstance(exc, BaseExceptionGroup):
+        for sub in exc.exceptions:
+            found = _find_api_status_error(sub)
+            if found is not None:
+                return found
+    if exc.__cause__ is not None:
+        return _find_api_status_error(exc.__cause__)
+    return None
+
+
+def _is_retryable_api_error(exc: BaseException) -> bool:
+    api_err = _find_api_status_error(exc)
+    return api_err is not None and (api_err.status_code == 429 or api_err.status_code >= 500)
+
+
 @dataclass(frozen=True)
 class RunSpec:
     agent: str
@@ -178,8 +203,8 @@ async def run_one(spec: RunSpec, deps: Deps, customer: Literal["llm", "scripted"
                 await asyncio.wait_for(_conversation(), timeout=deps.settings.run_timeout_s)
             except asyncio.TimeoutError:
                 outcome = "timeout"
-            except openai.APIStatusError as e:
-                if e.status_code == 429 or e.status_code >= 500:
+            except BaseException as e:
+                if _is_retryable_api_error(e):
                     outcome = "fail" if spec.condition in _OUTAGE_CONDITIONS else "infra_error"
                 else:
                     raise
@@ -193,16 +218,22 @@ async def run_one(spec: RunSpec, deps: Deps, customer: Literal["llm", "scripted"
 
             expected = expected_for(m, adversarial=condition.adversarial)
             judge_result: JudgeResult | None = None
-            if expected.must_say:
-                judge_result = await judge_must_say(
-                    transcript, expected.must_say, deps.sim_client, deps.sim_model
-                )
-            score = score_run(state, expected.db, events, m.facts, deps.policy, judge_result)
-            if outcome == "success" and not score.success:
-                outcome = "fail"
+            try:
+                if expected.must_say:
+                    judge_result = await judge_must_say(
+                        transcript, expected.must_say, deps.sim_client, deps.sim_model
+                    )
+                score = score_run(state, expected.db, events, m.facts, deps.policy, judge_result)
+                if outcome == "success" and not score.success:
+                    outcome = "fail"
+            except BaseException as e:
+                if _is_retryable_api_error(e):
+                    outcome = "infra_error"
+                else:
+                    raise
 
-            tokens_in = sum(r.get("prompt_tokens", 0) for r in trace.llm)
-            tokens_out = sum(r.get("completion_tokens", 0) for r in trace.llm)
+            tokens_in = sum(r.get("token_usage", {}).get("prompt_tokens", 0) for r in trace.llm)
+            tokens_out = sum(r.get("token_usage", {}).get("completion_tokens", 0) for r in trace.llm)
             cost_usd = sum(r.get("cost", 0) for r in trace.llm)
             if spec.condition == "C2_model_outage":
                 fallback_hops = sum(1 for r in trace.llm if r.get("provider") == "groq")

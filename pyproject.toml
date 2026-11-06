@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
-    { name = "BASILAHAMED", email = "sbasil.ahamed@gmail.com" }
+    { name = "GenOS Team", email = "connect@genosapp.com" }
 ]
 requires-python = ">=3.12"
 dependencies = [
@@ -27,6 +27,8 @@ dependencies = [
 
 [project.scripts]
 mystery-shopper = "mystery_shopper:main"
+ms = "mystery_shopper.cli:app"
+
 
 [build-system]
 requires = ["uv_build>=0.12.13,<0.13.0"]

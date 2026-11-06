@@ -21,6 +21,13 @@ from mystery_shopper.tokens import scoped_email, scoped_id
 
 _ORDER_ID_RE = re.compile(r"\b([A-H]\d{4})\b")
 
+# Facts keys that must stay the raw (unscoped) order id, because they are the
+# literal primary/foreign key the shop DB stores and looks orders up by
+# (partitioning already happens via the separate `token` column/argument).
+# Only free text (opener, notes, adversarial order_note) should carry the
+# customer-facing scoped id like "A1043-R7K2A".
+_UNSCOPED_ID_KEYS = {"id", "order_id"}
+
 
 def _deep_merge(base, override):
     if isinstance(override, dict) and isinstance(base, dict):
@@ -88,13 +95,15 @@ def _scope_text(text: str, token: str) -> str:
     return _ORDER_ID_RE.sub(lambda m: scoped_id(m.group(1), token), text)
 
 
-def _scope_value(value, token: str):
+def _scope_value(value, token: str, key: str | None = None):
     if isinstance(value, str):
+        if key in _UNSCOPED_ID_KEYS:
+            return value
         return _scope_text(value, token)
     if isinstance(value, dict):
-        return {k: _scope_value(v, token) for k, v in value.items()}
+        return {k: _scope_value(v, token, key=k) for k, v in value.items()}
     if isinstance(value, list):
-        return [_scope_value(v, token) for v in value]
+        return [_scope_value(v, token, key=key) for v in value]
     return value
 
 
@@ -106,7 +115,7 @@ def materialize(inst: TicketInstance, token: str) -> Materialized:
 
     first_order_id = ""
     if facts.get("orders"):
-        first_order_id = facts["orders"][0]["id"]
+        first_order_id = scoped_id(facts["orders"][0]["id"], token)
 
     opener = _scope_text(inst.persona.opener, token).format(order_id=first_order_id)
 

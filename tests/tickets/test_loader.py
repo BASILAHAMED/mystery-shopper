@@ -30,17 +30,19 @@ def test_expand_three_variants_with_distinct_seeds():
     assert len({inst.seed for inst in instances}) == 3
 
 
-def test_materialize_scopes_all_ids():
-    import re
-
+def test_materialize_keeps_db_order_ids_unscoped():
+    """The shop DB's orders.id/order_id columns are primary/foreign keys the
+    tool resolves after stripping the token suffix (see shop/server.py
+    _resolve); if materialize() scoped them too, every get_order lookup would
+    404 on a real run. Only customer-facing text gets the scoped id."""
     suite = load_suite(TICKETS_DIR)
     t = suite["refund-out-of-window"]
     inst = expand_variants(t, template_index=1)[0]
     m = materialize(inst, "R7K2A")
 
-    unscoped_re = re.compile(r"\b[A-H]\d{4}\b(?!-R)")
-    blob = json.dumps(m.facts) + m.opener + (m.adversarial_note or "")
-    assert unscoped_re.search(blob) is None
+    assert m.facts["orders"][0]["id"] == "A1043"
+    assert all(s["order_id"] == "A1043" for s in m.facts.get("shipments", []))
+    assert "A1043-R7K2A" in m.opener
     assert m.facts["customer"]["email"].endswith(".r7k2a@example.com")
 
 

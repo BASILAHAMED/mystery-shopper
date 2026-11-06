@@ -84,4 +84,38 @@ since the slot's `allowed_models` just got narrowed. The fix: the simulator and
 judge need their own dedicated, never-claimed virtual key (`ms-sim` in
 `bifrost/config.json`, `allowed_models: ["*"]`), separate from the per-run pool.
 
+## 6 Nov — ticket materialization was double-scoping the shop DB's order-id keys
+
+Not a Bifrost issue — a self-inflicted bug found live during the Task 12 dry
+run. `materialize()` ran every string in a ticket's `facts` through the same
+order-id-scoping regex, including `orders[].id` and `shipments[].order_id`.
+Those two keys are the literal primary/foreign keys the shop's SQLite schema
+stores and `get_order`'s `_resolve()` looks up by *after* stripping the run
+token suffix from the agent's request — so once they were also scoped (e.g.
+`"A1043"` → `"A1043-R6BJ3"`), every `get_order` call 404'd with "unknown
+order" on literally every run, for every agent, deterministically. It went
+unnoticed through the whole Task 11 signature scene because every agent
+recovered conversationally (the simulated customer dictates the order facts
+back once the lookup fails, and agents proceeded on that unverified
+self-reported data) — a worse failure mode than the one we meant to be
+testing, silently masking a harness bug as acceptable agent behavior. Fixed
+by making `_scope_value` key-aware: `id`/`order_id` values stay unscoped;
+only free text (openers, notes, adversarial `order_note`) gets the
+customer-facing scoped id. Caught by `test_materialize_scopes_all_ids`
+actually encoding the *bug* as the expected behavior — rewritten as
+`test_materialize_keeps_db_order_ids_unscoped`.
+
+## 6 Nov — Groq free-tier has a 200k-token-per-day cap, separate from per-minute
+
+`openai/gpt-oss-120b` on the `on_demand` service tier enforces both a TPM
+(tokens-per-minute) and a **TPD** (tokens-per-day) limit. The TPM 429 is easy
+to retry around; the TPD 429 means the account is out of budget for the rest
+of the day (or until enough usage ages out of whatever window Groq tracks it
+over — empirically it recovers in small increments faster than a strict
+midnight reset would suggest, but not fast enough to finish a 12+ run matrix
+in one sitting on the free tier). This blocked literally completing Task 12's
+Step 5 dry run; see `docs/methodology.md` for the cost projection used
+instead, grounded in the real per-run costs that were obtained before the cap
+hit.
+
 

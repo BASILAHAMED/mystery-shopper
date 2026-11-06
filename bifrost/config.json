@@ -18,6 +18,12 @@
     "virtual_keys": [
       { "id": "vk-ms-pool-test", "name": "ms-pool-test", "value": "env.MS_POOL_VK_00",
         "provider_configs": [ { "provider": "groq", "weight": 1.0, "allowed_models": ["shopmodel"], "key_ids": ["*"] } ] },
+      { "id": "vk-ms-pool-1", "name": "ms-pool-1", "value": "env.MS_POOL_VK_01",
+        "provider_configs": [ { "provider": "groq", "weight": 1.0, "allowed_models": ["shopmodel"], "key_ids": ["*"] } ] },
+      { "id": "vk-ms-pool-2", "name": "ms-pool-2", "value": "env.MS_POOL_VK_02",
+        "provider_configs": [ { "provider": "groq", "weight": 1.0, "allowed_models": ["shopmodel"], "key_ids": ["*"] } ] },
+      { "id": "vk-ms-pool-3", "name": "ms-pool-3", "value": "env.MS_POOL_VK_03",
+        "provider_configs": [ { "provider": "groq", "weight": 1.0, "allowed_models": ["shopmodel"], "key_ids": ["*"] } ] },
       { "id": "vk-ms-sim", "name": "ms-sim", "value": "env.MS_SIM_VK",
         "provider_configs": [ { "provider": "groq", "weight": 1.0, "allowed_models": ["*"], "key_ids": ["*"] } ] }
     ]
