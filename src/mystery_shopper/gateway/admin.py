@@ -71,7 +71,14 @@ class BifrostAdmin:
 
     async def delete_vk(self, vk_id: str) -> None:
         body = {"is_active": False, "provider_configs": [], "mcp_configs": [], "relay_grants": []}
-        await self.client.put(f"{self.base_url}/api/governance/virtual-keys/{vk_id}", json=body)
+        try:
+            await self.client.put(f"{self.base_url}/api/governance/virtual-keys/{vk_id}", json=body)
+        except httpx.HTTPError:
+            # The slot still goes back to the local pool even if Bifrost is
+            # momentarily unreachable -- a handful of transient failures here
+            # would otherwise permanently exhaust the whole (small) pool for
+            # the rest of the process. See docs/bifrost-friction-log.md.
+            pass
         vk = self._in_use.pop(vk_id, None)
         if vk is not None:
             self._free.append(vk)

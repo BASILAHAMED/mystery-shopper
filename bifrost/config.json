@@ -2,6 +2,10 @@
   "client": { "enforce_auth_on_inference": true },
   "providers": {
     "groq": { "keys": [ { "name": "groq_main", "value": "env.GROQ_API_KEY", "models": ["*"], "weight": 1.0,
+                          "aliases": { "shopmodel": "openai/gpt-oss-120b" } },
+                        { "name": "groq_2", "value": "env.GROQ_API_KEY_2", "models": ["*"], "weight": 1.0,
+                          "aliases": { "shopmodel": "openai/gpt-oss-120b" } },
+                        { "name": "groq_3", "value": "env.GROQ_API_KEY_3", "models": ["*"], "weight": 1.0,
                           "aliases": { "shopmodel": "openai/gpt-oss-120b" } } ] },
     "faultproxy": {
       "custom_provider_config": { "base_provider_type": "openai" },

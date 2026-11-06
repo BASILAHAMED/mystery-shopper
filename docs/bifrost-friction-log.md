@@ -186,4 +186,32 @@ The only real way to get more aggregate daily throughput here is more
 separate API keys/accounts (each with its own quota bucket), load-balanced
 across Bifrost provider_configs, not more concurrent workers against one key.
 
+## 6 Nov — a handful of transient Bifrost hiccups permanently exhausted the whole 4-slot VK pool
+
+Self-inflicted, not a Bifrost bug, but it masqueraded as one for a while: a
+pass of the overnight matrix suddenly produced ~400 "infra_error" results in
+a few seconds (far too fast to be real Groq round-trips), and every one of
+them had `explanation: "RuntimeError: virtual key pool exhausted"`. Root
+cause: `BifrostAdmin.delete_vk()`'s PUT call to release a claimed slot back to
+Bifrost was not wrapped in a try/except. Bifrost had been restarted several
+times that session (to pick up config changes, clear its log DB, etc.) while
+the long-running `ms run` process was still mid-flight on some spec; each
+time that happened, the in-flight run's `delete_vk()` PUT failed with a
+connection error, which propagated *before* the local pool bookkeeping
+(`self._in_use.pop` / `self._free.append`) ever ran. With only 4 pool slots
+total, it took just 4 such transient failures across the whole process's
+lifetime to permanently exhaust the pool — after that, every remaining spec
+in the matrix failed instantly (no network call at all) with the local
+`RuntimeError`, racing through hundreds of specs in seconds. **Fixed:**
+`delete_vk()` now always returns the slot to the local pool regardless of
+whether the remote PUT succeeded — an orphaned VK on Bifrost's side just gets
+reconfigured on its next claim anyway, so losing track of it locally is pure
+cost with no benefit. Regression test:
+`test_delete_vk_still_releases_slot_when_bifrost_put_fails`. Lesson: pool/
+cache release logic that's coupled to a remote call succeeding is a silent,
+cumulative failure mode — any transient outage of the remote side can
+permanently leak state that never recovers on its own, even after the outage
+clears.
+
+
 

@@ -50,11 +50,37 @@ async def test_delete_vk_releases_slot_back_to_pool():
     respx.put("http://127.0.0.1:8080/api/governance/virtual-keys/vk-pool-0").mock(
         return_value=httpx.Response(200, json={"ok": True})
     )
-    admin = _admin([VirtualKey("vk-pool-0", "sk-bf-known-0")])
+    admin = _admin([VirtualKey("vk-pool-0", "«redacted:sk-…»")])
     spec = VKSpec(name="ms-C0-R7K2A", provider_configs=[])
 
     vk1 = await admin.create_vk(spec)
     await admin.delete_vk(vk1.id)
+    vk2 = await admin.create_vk(spec)
+
+    assert vk2 == vk1
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_delete_vk_still_releases_slot_when_bifrost_put_fails():
+    """Regression: if Bifrost is momentarily unreachable (restarted mid-run,
+    a network blip) during the release PUT, the slot must still come back to
+    the local pool -- otherwise a handful of transient failures permanently
+    exhaust the whole (tiny, 4-slot) pool for the rest of the process, and
+    every subsequent spec in the matrix fails instantly with 'virtual key
+    pool exhausted' instead of actually being attempted."""
+    route = respx.put("http://127.0.0.1:8080/api/governance/virtual-keys/vk-pool-0").mock(
+        return_value=httpx.Response(200, json={"ok": True})
+    )
+    admin = _admin([VirtualKey("vk-pool-0", "«redacted:sk-…»")])
+    spec = VKSpec(name="ms-C0-R7K2A", provider_configs=[])
+
+    vk1 = await admin.create_vk(spec)
+
+    route.mock(side_effect=httpx.ConnectError("boom"))
+    await admin.delete_vk(vk1.id)  # Bifrost PUT fails, must not raise
+
+    route.mock(return_value=httpx.Response(200, json={"ok": True}))
     vk2 = await admin.create_vk(spec)
 
     assert vk2 == vk1
