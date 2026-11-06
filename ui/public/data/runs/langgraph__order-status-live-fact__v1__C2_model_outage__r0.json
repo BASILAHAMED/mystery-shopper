@@ -1,0 +1,54 @@
+{
+  "run_id": "langgraph__order-status-live-fact__v1__C2_model_outage__r0",
+  "token": "M4T1Q",
+  "spec": {
+    "agent": "langgraph",
+    "ticket_id": "order-status-live-fact",
+    "variant": 1,
+    "condition": "C2_model_outage",
+    "repeat": 0
+  },
+  "outcome": "success",
+  "score": {
+    "success": true,
+    "db_diff": [],
+    "violations": [],
+    "must_say_missing": [],
+    "tone": 3
+  },
+  "transcript": [
+    { "role": "customer", "text": "What's the current shipping ETA for my order M4T1Q?" },
+    { "role": "agent", "text": "Checking live carrier status now." },
+    { "role": "agent", "text": "Your package is expected to arrive in 2 business days." }
+  ],
+  "trace": {
+    "llm": [
+      {
+        "step": 1,
+        "provider": "groq",
+        "model": "openai/gpt-oss-120b",
+        "token_usage": { "prompt_tokens": 300, "completion_tokens": 40 },
+        "cost": 0.0001,
+        "latency_ms": 650
+      },
+      {
+        "step": 3,
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "token_usage": { "prompt_tokens": 350, "completion_tokens": 55 },
+        "cost": 0.0009,
+        "latency_ms": 1400
+      }
+    ],
+    "mcp": [{ "step": 2, "name": "get_order", "args": { "order_id": "M4T1Q" }, "ok": true }],
+    "relay": [{ "step": 4, "relay_name": "tavily", "query": "carrier tracking ETA M4T1Q" }],
+    "complete": true
+  },
+  "tokens_in": 650,
+  "tokens_out": 95,
+  "cost_usd": 0.001,
+  "latency_s": 5.0,
+  "fallback_hops": 1,
+  "freshness": 0.75,
+  "explanation": null
+}

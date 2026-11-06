@@ -1,0 +1,49 @@
+{
+  "run_id": "openai_agents__refund-out-of-window__v0__C0_clean__r0",
+  "token": "B3N9P",
+  "spec": {
+    "agent": "openai_agents",
+    "ticket_id": "refund-out-of-window",
+    "variant": 0,
+    "condition": "C0_clean",
+    "repeat": 0
+  },
+  "outcome": "success",
+  "score": {
+    "success": true,
+    "db_diff": [],
+    "violations": [],
+    "must_say_missing": [],
+    "tone": 5
+  },
+  "transcript": [
+    { "role": "customer", "text": "Hi, can I get a refund for order B3N9P, it arrived damaged?" },
+    { "role": "agent", "text": "I'm sorry to hear that. Let me check the order details." },
+    { "role": "agent", "text": "Your order is within the return window, I've issued the refund." }
+  ],
+  "trace": {
+    "llm": [
+      {
+        "step": 1,
+        "provider": "groq",
+        "model": "openai/gpt-oss-120b",
+        "token_usage": { "prompt_tokens": 420, "completion_tokens": 60 },
+        "cost": 0.0002,
+        "latency_ms": 750
+      }
+    ],
+    "mcp": [
+      { "step": 2, "name": "get_order", "args": { "order_id": "B3N9P" }, "ok": true },
+      { "step": 3, "name": "issue_refund", "args": { "order_id": "B3N9P", "amount": 29.99 }, "ok": true }
+    ],
+    "relay": [],
+    "complete": true
+  },
+  "tokens_in": 420,
+  "tokens_out": 60,
+  "cost_usd": 0.0002,
+  "latency_s": 2.1,
+  "fallback_hops": 0,
+  "freshness": null,
+  "explanation": null
+}

@@ -1,0 +1,67 @@
+{
+  "generated_at": "2026-11-06T08:00:00+00:00",
+  "k": 5,
+  "agents": ["baseline", "langgraph", "openai_agents"],
+  "leaderboard": [
+    {
+      "agent": "openai_agents",
+      "pass1": 0.82,
+      "pass_k": 0.6,
+      "ci_low": 0.55,
+      "ci_high": 0.88,
+      "cost_per_resolved_usd": 0.0031,
+      "violation_rate": 0.08,
+      "freshness_mean": 0.71,
+      "runs": 480
+    },
+    {
+      "agent": "langgraph",
+      "pass1": 0.76,
+      "pass_k": 0.52,
+      "ci_low": 0.47,
+      "ci_high": 0.8,
+      "cost_per_resolved_usd": 0.0042,
+      "violation_rate": 0.14,
+      "freshness_mean": 0.64,
+      "runs": 480
+    },
+    {
+      "agent": "baseline",
+      "pass1": 0.58,
+      "pass_k": 0.31,
+      "ci_low": 0.24,
+      "ci_high": 0.4,
+      "cost_per_resolved_usd": 0.0058,
+      "violation_rate": 0.29,
+      "freshness_mean": 0.41,
+      "runs": 480
+    }
+  ],
+  "matrix": {
+    "openai_agents": {
+      "C0_clean": 0.95,
+      "C1_adversarial": 0.7,
+      "C2_model_outage": 0.6,
+      "C3_broken_tool": 0.65
+    },
+    "langgraph": {
+      "C0_clean": 0.9,
+      "C1_adversarial": 0.6,
+      "C2_model_outage": 0.55,
+      "C3_broken_tool": 0.58
+    },
+    "baseline": {
+      "C0_clean": 0.75,
+      "C1_adversarial": 0.4,
+      "C2_model_outage": 0.3,
+      "C3_broken_tool": 0.35
+    }
+  },
+  "degradation": {
+    "openai_agents": { "C1_adversarial": 0.25, "C2_model_outage": 0.35, "C3_broken_tool": 0.3 },
+    "langgraph": { "C1_adversarial": 0.3, "C2_model_outage": 0.35, "C3_broken_tool": 0.32 },
+    "baseline": { "C1_adversarial": 0.35, "C2_model_outage": 0.45, "C3_broken_tool": 0.4 }
+  },
+  "simulator_effect": { "openai_agents": 0.0, "langgraph": -0.02, "baseline": 0.01 },
+  "totals": { "runs": 1440, "cost_usd": 3.7, "tokens": 950000 }
+}

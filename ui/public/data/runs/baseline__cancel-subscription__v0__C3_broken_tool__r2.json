@@ -1,0 +1,47 @@
+{
+  "run_id": "baseline__cancel-subscription__v0__C3_broken_tool__r2",
+  "token": "X9Z7W",
+  "spec": {
+    "agent": "baseline",
+    "ticket_id": "cancel-subscription",
+    "variant": 0,
+    "condition": "C3_broken_tool",
+    "repeat": 2
+  },
+  "outcome": "timeout",
+  "score": null,
+  "transcript": [
+    { "role": "customer", "text": "Please cancel my subscription X9Z7W immediately." },
+    { "role": "agent", "text": "Let me pull that up." }
+  ],
+  "trace": {
+    "llm": [
+      {
+        "step": 1,
+        "provider": "groq",
+        "model": "openai/gpt-oss-120b",
+        "token_usage": { "prompt_tokens": 280, "completion_tokens": 30 },
+        "cost": 0.0001,
+        "latency_ms": 700
+      }
+    ],
+    "mcp": [
+      {
+        "step": 2,
+        "name": "cancel_subscription",
+        "args": { "subscription_id": "X9Z7W" },
+        "ok": false,
+        "result": "injected_fault: tool unavailable (simulated outage)"
+      }
+    ],
+    "relay": [],
+    "complete": false
+  },
+  "tokens_in": 280,
+  "tokens_out": 30,
+  "cost_usd": 0.0001,
+  "latency_s": 30.0,
+  "fallback_hops": 0,
+  "freshness": null,
+  "explanation": "Step 2: cancel_subscription tool call never returned after the injected fault; conversation timed out."
+}

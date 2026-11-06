@@ -216,6 +216,104 @@ def explain(
     typer.echo(f"Explained {updated} failed run(s).")
 
 
+# Hardcoded demo run ids that should always be included in the UI snapshot,
+# e.g. ones referenced by name in a talk or writeup. Empty until some are
+# picked from the real evaluation matrix.
+DEMO_RUN_IDS: list[str] = []
+
+SNAPSHOT_MAX_RUNS = 300
+SNAPSHOT_TOP_FAILED = 20
+
+
+def select_snapshot_runs(
+    run_dicts: list[dict],
+    demo_run_ids: list[str] | None = None,
+    cap: int = SNAPSHOT_MAX_RUNS,
+    top_failed: int = SNAPSHOT_TOP_FAILED,
+) -> list[dict]:
+    """Pick a bounded subset of run dicts to ship with the static UI.
+
+    Priority (each group de-duplicated by run_id, first occurrence wins):
+      1. demo_run_ids (hardcoded showcase runs).
+      2. The `top_failed` runs with outcome in (fail, timeout) with the most
+         `score.violations`, ties broken by run_id ascending.
+      3. Every C1_adversarial run of the alphabetically-first ticket id
+         present in run_dicts.
+    The combined, de-duplicated result is capped at `cap` entries.
+    """
+    demo_run_ids = demo_run_ids or []
+
+    by_id = {r["run_id"]: r for r in run_dicts}
+
+    demo_selected = [by_id[rid] for rid in demo_run_ids if rid in by_id]
+
+    failed = [r for r in run_dicts if r.get("outcome") in ("fail", "timeout")]
+    failed_sorted = sorted(
+        failed,
+        key=lambda r: (-len((r.get("score") or {}).get("violations", [])), r["run_id"]),
+    )
+    top_failed_selected = failed_sorted[:top_failed]
+
+    ticket_ids = sorted({r["spec"]["ticket_id"] for r in run_dicts})
+    c1_selected: list[dict] = []
+    if ticket_ids:
+        first_ticket = ticket_ids[0]
+        c1_selected = [
+            r
+            for r in run_dicts
+            if r["spec"]["ticket_id"] == first_ticket and r["spec"]["condition"] == "C1_adversarial"
+        ]
+
+    selected: dict[str, dict] = {}
+    for group in (demo_selected, top_failed_selected, c1_selected):
+        for r in group:
+            selected.setdefault(r["run_id"], r)
+
+    return list(selected.values())[:cap]
+
+
+@app.command()
+def snapshot(
+    report: Path = typer.Option(Path("results/report.json")),
+    runs_dir: Path = typer.Option(Path("results/runs")),
+    ui_dir: Path = typer.Option(Path("ui")),
+) -> None:
+    """Copy results/report.json and a bounded set of results/runs/*.json into
+    ui/public/data so `npm run build` in ui/ produces a static export with
+    real data. Safe to re-run; always overwrites the previous snapshot.
+    """
+    out_data_dir = Path(ui_dir) / "public" / "data"
+    out_runs_dir = out_data_dir / "runs"
+    out_data_dir.mkdir(parents=True, exist_ok=True)
+    out_runs_dir.mkdir(parents=True, exist_ok=True)
+
+    report_path = Path(report)
+    if not report_path.exists():
+        typer.echo(f"No report at {report_path}; run `ms report` first.", err=True)
+        raise typer.Exit(code=1)
+    (out_data_dir / "report.json").write_text(
+        report_path.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
+    run_dicts = [
+        json.loads(p.read_text(encoding="utf-8")) for p in sorted(Path(runs_dir).glob("*.json"))
+    ]
+    selected = select_snapshot_runs(run_dicts, demo_run_ids=DEMO_RUN_IDS)
+
+    for old in out_runs_dir.glob("*.json"):
+        old.unlink()
+
+    for r in selected:
+        (out_runs_dir / f"{r['run_id']}.json").write_text(
+            json.dumps(r, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
+        )
+    (out_runs_dir / "index.json").write_text(
+        json.dumps([r["run_id"] for r in selected], indent=2), encoding="utf-8"
+    )
+
+    typer.echo(f"Snapshot: wrote report.json and {len(selected)} run(s) to {out_data_dir}")
+
+
 @app.command()
 def gate(
     agent: str = typer.Option(...),
