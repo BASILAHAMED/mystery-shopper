@@ -118,4 +118,23 @@ Step 5 dry run; see `docs/methodology.md` for the cost projection used
 instead, grounded in the real per-run costs that were obtained before the cap
 hit.
 
+## 6 Nov — respx doesn't reliably intercept openai-SDK AsyncClient calls here
+
+Not a Bifrost issue, but it burned real Groq quota while writing Task 14's
+`ms explain` CLI test. `@respx.mock`/`with respx.mock:` intercepts plain
+`httpx.AsyncClient` calls fine elsewhere in this test suite (web_search,
+signature scene, run.py's rate-limit tests), but a request made through
+`openai.AsyncOpenAI(...).chat.completions.create(...)` went straight through
+to the real, locally-running Bifrost instance instead of being mocked —
+confirmed by reproducing it standalone outside pytest. Root cause not fully
+chased down (suspect SDK-internal httpx client construction/connection
+handling respx's transport patch doesn't reach in this combination of
+versions); not worth the time to fix given the workaround. **Fix/lesson: when
+testing a thin CLI wrapper around an `openai.AsyncOpenAI`-calling function
+(here `explain_failure`), mock the function itself with
+`unittest.mock.patch("module.path.function_name", AsyncMock(...))` instead of
+trying to intercept the HTTP layer with respx** — it's also simpler, and the
+function's own real-network behavior is already covered by a dedicated unit
+test with a stub client object (no real SDK client involved at all).
+
 

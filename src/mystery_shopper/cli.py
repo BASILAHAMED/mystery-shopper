@@ -177,6 +177,39 @@ def report(
 
 
 @app.command()
+def explain(
+    runs_dir: Path = typer.Option(Path("results/runs")),
+) -> None:
+    """Fill `explanation` in every failed run JSON under runs_dir."""
+    load_dotenv(ROOT / ".env")
+    settings = Settings()
+    from mystery_shopper.runner.matrix import record_from_json
+    from mystery_shopper.scoring.analyst import explain_failure
+
+    client = AsyncOpenAI(
+        base_url=f"{settings.bifrost_url}/v1", api_key=os.environ.get("MS_SIM_VK", ""), max_retries=2
+    )
+
+    async def _main():
+        updated = 0
+        for path in sorted(Path(runs_dir).glob("*.json")):
+            data = json.loads(path.read_text(encoding="utf-8"))
+            record = record_from_json(data)
+            if record.outcome == "success" or record.explanation:
+                continue
+            explanation = await explain_failure(record, client, settings.sim_model)
+            if explanation is not None:
+                data["explanation"] = explanation
+                path.write_text(json.dumps(data, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+                updated += 1
+        await client.close()
+        return updated
+
+    updated = asyncio.run(_main())
+    typer.echo(f"Explained {updated} failed run(s).")
+
+
+@app.command()
 def gate(
     agent: str = typer.Option(...),
     metric: str = typer.Option("pass_k"),
